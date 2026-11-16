@@ -81,7 +81,8 @@ class MeetSession:
             await chat.open_chat(page)
             await chat.start_chat_observer(page, lambda m: self.queue.put_nowait(("chat", m)))
             if not await captions.enable_captions(page):
-                await self.emit("log", level="warning", message="Sous-titres Meet introuvables : transcript live absent")
+                await self.emit("log", level="warning",
+                                message="Sous-titres Meet introuvables : pas de transcript en direct")
             await captions.start_captions_observer(page, lambda c: self.queue.put_nowait(("caption", c)))
             await self.status("in_meeting")  # le bot est prêt à recevoir des commandes
             if self.cfg.get("announce", True):

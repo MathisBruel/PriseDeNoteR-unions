@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y libpango-1.0-0 libpangoft2-1.0-0
+      - run: >
+          pip install fastapi "sqlalchemy[asyncio]" pydantic-settings redis arq httpx argon2-cffi itsdangerous
+          cryptography jinja2 python-docx weasyprint alembic -r requirements-dev.txt
+      - run: ruff check .
+      - run: pytest -q
+
+  bot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update && sudo apt-get install -y xvfb ffmpeg
+      - run: pip install -r bot/requirements.txt pytest pytest-asyncio ruff
+      - run: playwright install --with-deps chromium
+      - run: ruff check bot
+      - run: pytest -q -c bot/pyproject.toml bot/tests
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build

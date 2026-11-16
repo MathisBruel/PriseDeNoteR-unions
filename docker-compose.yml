@@ -1,0 +1,81 @@
+# PriseDeNoteRéunions — lancement : cp .env.example .env && docker compose up -d --build
+x-backend: &backend
+  build: ./backend
+  restart: unless-stopped
+  environment: &backend-env
+    DATABASE_URL: postgresql+asyncpg://pdn:${POSTGRES_PASSWORD:-pdn}@postgres:5432/pdn
+    REDIS_URL: redis://redis:6379/0
+    APP_SECRET_KEY: ${APP_SECRET_KEY:?Définissez APP_SECRET_KEY dans .env}
+    PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+    COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    TIMEZONE: ${TIMEZONE:-Europe/Paris}
+    DATA_DIR: /data
+    HF_HOME: /data/models # cache des modèles Whisper
+  volumes:
+    - ./data:/data
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pdn
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pdn}
+      POSTGRES_DB: pdn
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pdn"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+
+  api:
+    <<: *backend
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 10s
+      retries: 12
+
+  worker:
+    <<: *backend
+    command: arq app.tasks.worker.WorkerSettings
+    depends_on:
+      api: { condition: service_healthy }
+
+  bot:
+    build: ./bot
+    restart: unless-stopped
+    shm_size: 2gb # mémoire partagée requise par Chromium
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      APP_SECRET_KEY: ${APP_SECRET_KEY:?Définissez APP_SECRET_KEY dans .env}
+      MAX_CONCURRENT_MEETINGS: ${MAX_CONCURRENT_MEETINGS:-3}
+      DATA_DIR: /data
+      TZ: ${TIMEZONE:-Europe/Paris}
+    volumes:
+      - ./data:/data
+    depends_on:
+      - redis
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    depends_on:
+      - api
+      - bot
+
+volumes:
+  pgdata:
+  redisdata:
