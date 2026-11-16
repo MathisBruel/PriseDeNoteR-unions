@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>{{ title }}</title>
+<style>
+  @page { size: A4; margin: 22mm 18mm 20mm; @bottom-right { content: counter(page) " / " counter(pages); font-size: 8pt; color: #6b7280; } }
+  body { font-family: "DejaVu Sans", "Helvetica Neue", Arial, sans-serif; font-size: 10.5pt; line-height: 1.5; color: #1f2937; }
+  header { border-bottom: 3px solid #1d4ed8; padding-bottom: 10pt; margin-bottom: 16pt; }
+  .kicker { text-transform: uppercase; letter-spacing: .12em; font-size: 8pt; color: #1d4ed8; font-weight: bold; }
+  h1 { font-size: 20pt; margin: 4pt 0 6pt; color: #111827; line-height: 1.2; }
+  .meta { color: #4b5563; font-size: 9.5pt; }
+  h2 { font-size: 13pt; color: #1d4ed8; margin: 18pt 0 6pt; break-after: avoid; }
+  h3 { font-size: 11pt; margin: 10pt 0 3pt; color: #111827; break-after: avoid; }
+  ul { margin: 0 0 6pt; padding-left: 16pt; }
+  li { margin-bottom: 2pt; }
+  .summary { background: #eff6ff; border-left: 3px solid #1d4ed8; padding: 8pt 12pt; white-space: pre-line; }
+  table { width: 100%; border-collapse: collapse; margin-top: 4pt; }
+  th { text-align: left; background: #1d4ed8; color: #fff; padding: 5pt 7pt; font-size: 9.5pt; }
+  td { padding: 5pt 7pt; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  tr { break-inside: avoid; }
+</style>
+</head>
+<body>
+<header>
+  <div class="kicker">Compte rendu de réunion</div>
+  <h1>{{ title }}</h1>
+  <div class="meta">
+    {{ date }}{% if duration %} · Durée enregistrée : {{ duration }}{% endif %}
+    {% if report.participants %}<br>Participants : {{ report.participants | join(", ") }}{% endif %}
+  </div>
+</header>
+
+<h2>Résumé</h2>
+<div class="summary">{{ report.summary or "—" }}</div>
+
+{% if report.topics %}
+<h2>Points abordés</h2>
+{% for topic in report.topics %}
+<h3>{{ topic.title }}</h3>
+<ul>{% for point in topic.points %}<li>{{ point }}</li>{% endfor %}</ul>
+{% endfor %}
+{% endif %}
+
+{% if report.decisions %}
+<h2>Décisions</h2>
+<ul>{% for item in report.decisions %}<li>{{ item }}</li>{% endfor %}</ul>
+{% endif %}
+
+{% if report.action_items %}
+<h2>Actions</h2>
+<table>
+  <thead><tr><th>Action</th><th>Responsable</th><th>Échéance</th></tr></thead>
+  <tbody>
+  {% for item in report.action_items %}
+  <tr><td>{{ item.task }}</td><td>{{ item.owner or "—" }}</td><td>{{ item.due or "—" }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if report.open_questions %}
+<h2>Questions ouvertes</h2>
+<ul>{% for item in report.open_questions %}<li>{{ item }}</li>{% endfor %}</ul>
+{% endif %}
+</body>
+</html>

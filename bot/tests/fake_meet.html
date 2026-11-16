@@ -1,0 +1,104 @@
+<!doctype html>
+<!-- Page factice reproduisant la structure de Google Meet utile au bot (tests sans Google). -->
+<html>
+<head><meta charset="utf-8"><title>Fake Meet</title></head>
+<body>
+<div id="prejoin">
+  <div role="button" aria-label="Turn off microphone (ctrl + d)" onclick="fake.micOff = true">mic</div>
+  <div role="button" aria-label="Turn off camera (ctrl + e)" onclick="fake.camOff = true">cam</div>
+  <button onclick="fake.requestJoin()">Ask to join</button>
+  <button>Other ways to join</button>
+</div>
+<div id="notice"></div>
+
+<template id="call-template">
+  <div id="call">
+    <div id="tiles"></div>
+    <button aria-label="Leave call" onclick="fake.left = true; fake.end()">leave</button>
+    <button aria-label="Chat with everyone" onclick="document.getElementById('chatpanel').hidden = false">chat</button>
+    <button aria-label="Turn on captions (c)" onclick="fake.enableCaptions()">cc</button>
+    <div id="captions-host"></div>
+    <div id="chatpanel" hidden>
+      <div id="messages"></div>
+      <textarea aria-label="Send a message to everyone"></textarea>
+    </div>
+  </div>
+</template>
+
+<script>
+const params = new URLSearchParams(location.search);
+const fake = {
+  micOff: false, camOff: false, left: false, messageId: 0, lastSender: null,
+  requestJoin() {
+    document.getElementById('prejoin').remove();
+    if (params.get('mode') === 'deny') {
+      document.getElementById('notice').textContent = 'Someone in the call denied your request to join';
+      return;
+    }
+    document.getElementById('notice').textContent = 'Asking to be let in…';
+    setTimeout(() => {
+      document.getElementById('notice').textContent = '';
+      document.body.appendChild(document.getElementById('call-template').content.cloneNode(true));
+      fake.setParticipants(Number(params.get('participants') || 3));
+      document.querySelector('textarea').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); fake.chat('You', e.target.value); e.target.value = ''; }
+      });
+    }, Number(params.get('admit') || 300));
+  },
+  setParticipants(n) {
+    const tiles = document.getElementById('tiles');
+    tiles.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+      const tile = document.createElement('div');
+      tile.setAttribute('data-participant-id', 'p' + i);
+      tiles.appendChild(tile);
+    }
+  },
+  // Comme dans Meet : un groupe par expéditeur (en-tête nom + heure), messages successifs regroupés.
+  chat(sender, text) {
+    const list = document.getElementById('messages');
+    let group = list.lastElementChild;
+    if (!group || fake.lastSender !== sender) {
+      group = document.createElement('div');
+      group.innerHTML = '<div class="hdr"><div></div><div>10:32 AM</div></div><div class="msgs"></div>';
+      group.querySelector('.hdr div').textContent = sender;
+      list.appendChild(group);
+      fake.lastSender = sender;
+    }
+    const wrap = document.createElement('div');
+    const message = document.createElement('div');
+    message.setAttribute('data-message-id', String(++fake.messageId));
+    message.textContent = text;
+    wrap.appendChild(message);
+    group.querySelector('.msgs').appendChild(wrap);
+  },
+  chatTexts() { return [...document.querySelectorAll('[data-message-id]')].map(e => e.textContent); },
+  enableCaptions() {
+    if (document.querySelector('[role=region]')) return;
+    const region = document.createElement('div');
+    region.setAttribute('role', 'region');
+    region.setAttribute('aria-label', 'Captions');
+    document.getElementById('captions-host').appendChild(region);
+  },
+  // Crée ou réécrit le bloc de sous-titres `key` (Meet réécrit le texte au fil de la parole).
+  caption(key, speaker, text) {
+    const region = document.querySelector('[role=region]');
+    let block = region.querySelector('[data-key="' + key + '"]');
+    if (!block) {
+      block = document.createElement('div');
+      block.setAttribute('data-key', key);
+      block.innerHTML = '<div><img alt="" width="8" height="8"><span></span></div><div class="txt"></div>';
+      block.querySelector('span').textContent = speaker;
+      region.appendChild(block);
+    }
+    block.querySelector('.txt').textContent = text;
+  },
+  end() {
+    const call = document.getElementById('call');
+    if (call) call.remove();
+    document.getElementById('notice').textContent = 'You left the meeting';
+  },
+};
+</script>
+</body>
+</html>
